@@ -15,28 +15,68 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "team_calenda
 TEAM_LEADERS = ["서유석", "홍영태", "김수용"]
 WORKERS = ["김만두", "박순일", "고한명", "서범석"]
 
-# 인원수 색상 (필요 인력이 많을수록 강조)
+
+# 인원수 색상 (필요 인력이 많을수록 강조) - 다크 배경용 밝은 색
 def count_color(n):
     if n <= 1:
-        return "#2e7d32"   # 초록
+        return "#66bb6a"   # 밝은 초록
     elif n == 2:
-        return "#ef6c00"   # 주황
+        return "#ffa726"   # 밝은 주황
     else:
-        return "#c62828"   # 빨강
+        return "#ef5350"   # 밝은 빨강
+
+
+# ──────────────────────────────────────────────
+# 전역 다크 테마 / 달력 스타일
+# ──────────────────────────────────────────────
+st.markdown("""
+<style>
+/* 전체 배경 다크 */
+.stApp { background-color: #0e1117; }
+
+/* 날짜 칸 버튼을 달력 셀처럼 보이게 */
+div[data-testid="column"] .stButton > button {
+    width: 100%;
+    min-height: 116px;
+    background-color: #1a1f2b;
+    border: 1px solid #2a3142;
+    border-radius: 10px;
+    padding: 8px 8px;
+    text-align: left;
+    white-space: pre-line;       /* 줄바꿈 \n 적용 */
+    line-height: 1.45;
+    font-size: 12px;
+    color: #e6e6e6;
+    transition: all 0.12s ease-in-out;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+div[data-testid="column"] .stButton > button:hover {
+    background-color: #232a3a;
+    border-color: #4a90e2;
+    transform: translateY(-1px);
+}
+/* 버튼 내부 텍스트 좌측 정렬 */
+div[data-testid="column"] .stButton > button p {
+    text-align: left;
+    width: 100%;
+    margin: 0;
+}
+</style>
+""", unsafe_allow_html=True)
 
 
 # ──────────────────────────────────────────────
 # DB 초기화 / 함수
 # ──────────────────────────────────────────────
 def get_conn():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    return conn
+    return sqlite3.connect(DB_PATH, check_same_thread=False)
 
 
 def init_db():
     conn = get_conn()
     c = conn.cursor()
-    # 작업 일정
     c.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +88,6 @@ def init_db():
             created_at TEXT
         )
     """)
-    # 메모 (팀간 소통)
     c.execute("""
         CREATE TABLE IF NOT EXISTS memos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -180,6 +219,7 @@ with top_l:
 with top_r:
     if st.button("로그아웃", use_container_width=True):
         st.session_state.user = None
+        st.session_state.selected_date = None
         st.rerun()
 
 st.divider()
@@ -194,10 +234,12 @@ with nav_l:
         if st.session_state.view_month < 1:
             st.session_state.view_month = 12
             st.session_state.view_year -= 1
+        st.session_state.selected_date = None
         st.rerun()
 with nav_c:
     st.markdown(
-        f"<h3 style='text-align:center;margin:0;'>{st.session_state.view_year}년 {st.session_state.view_month}월</h3>",
+        f"<h3 style='text-align:center;margin:0;color:#e6e6e6;'>"
+        f"{st.session_state.view_year}년 {st.session_state.view_month}월</h3>",
         unsafe_allow_html=True)
 with nav_r:
     if st.button("다음 달 ▶", use_container_width=True):
@@ -205,23 +247,24 @@ with nav_r:
         if st.session_state.view_month > 12:
             st.session_state.view_month = 1
             st.session_state.view_year += 1
+        st.session_state.selected_date = None
         st.rerun()
 
 st.write("")
 
 # ──────────────────────────────────────────────
-# 달력 렌더링
+# 달력 렌더링 (칸 자체가 클릭 버튼)
 # ──────────────────────────────────────────────
 year = st.session_state.view_year
 month = st.session_state.view_month
 month_tasks = get_tasks_for_month(year, month)
 
 weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
-header_cols = st.columns(7)
+header_cols = st.columns(7, gap="small")
 for i, wn in enumerate(weekday_names):
-    color = "#c62828" if i == 6 else ("#1565c0" if i == 5 else "#333")
+    color = "#ef5350" if i == 6 else ("#42a5f5" if i == 5 else "#cfcfcf")
     header_cols[i].markdown(
-        f"<div style='text-align:center;font-weight:700;color:{color};'>{wn}</div>",
+        f"<div style='text-align:center;font-weight:700;color:{color};padding:4px 0;'>{wn}</div>",
         unsafe_allow_html=True)
 
 cal = calendar.Calendar(firstweekday=0)  # 월요일 시작
@@ -229,46 +272,31 @@ weeks = cal.monthdayscalendar(year, month)
 today = date.today()
 
 for week in weeks:
-    cols = st.columns(7)
+    cols = st.columns(7, gap="small")
     for i, day in enumerate(week):
         with cols[i]:
             if day == 0:
-                st.markdown("&nbsp;", unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='min-height:116px;'></div>",
+                    unsafe_allow_html=True)
                 continue
 
             wd_str = f"{year:04d}-{month:02d}-{day:02d}"
             tasks = month_tasks.get(wd_str, [])
             is_today = (today.year == year and today.month == month and today.day == day)
 
-            # 날짜 박스 내용 구성
-            day_color = "#c62828" if i == 6 else ("#1565c0" if i == 5 else "#222")
-            day_label = f"**{day}**"
-            border = "2px solid #1565c0" if is_today else "1px solid #ddd"
-            bg = "#e3f2fd" if is_today else "#fafafa"
-
-            # 작업 내용 미리보기 HTML (한 화면에 다 보이도록 줄바꿈)
-            inner = ""
+            # 버튼 라벨 구성 (줄바꿈은 \n, CSS white-space:pre-line 으로 적용)
+            mark = "● " if is_today else ""
+            label_lines = [f"{mark}{day}"]
             for leader, task, num, workers in tasks:
-                c = count_color(num)
-                w_txt = workers if workers else ""
-                inner += (
-                    f"<div style='background:#fff;color:#222;border-left:4px solid {c};"
-                    f"border-radius:4px;padding:4px 6px;margin:3px 0;font-size:11px;line-height:1.35;'>"
-                    f"<b style='color:#111;'>{leader}</b><br>"
-                    f"<span style='color:#222;'>{task}</span><br>"
-                    f"<span style='color:{c};font-weight:700;'>{num}명</span>"
-                    f"<span style='color:{c};font-weight:700;'>{('('+w_txt+')') if w_txt else ''}</span>"
-                    f"</div>"
-                )
+                w_txt = f"({workers})" if workers else ""
+                label_lines.append(f"─────")
+                label_lines.append(f"{leader}")
+                label_lines.append(f"{task}")
+                label_lines.append(f"{num}명{w_txt}")
+            label = "\n".join(label_lines)
 
-            st.markdown(
-                f"<div style='border:{border};border-radius:8px;background:{bg};"
-                f"padding:6px;min-height:90px;'>"
-                f"<div style='color:{day_color};font-weight:700;font-size:14px;'>{day}</div>"
-                f"{inner}</div>",
-                unsafe_allow_html=True)
-
-            if st.button("열기", key=f"open_{wd_str}", use_container_width=True):
+            if st.button(label, key=f"cell_{wd_str}", use_container_width=True):
                 st.session_state.selected_date = wd_str
                 st.rerun()
 
@@ -279,13 +307,13 @@ st.divider()
 # ──────────────────────────────────────────────
 if st.session_state.selected_date:
     sel = st.session_state.selected_date
-    st.markdown(f"## 🗓️ {sel} 상세")
+    st.markdown(f"<h2 style='color:#e6e6e6;'>🗓️ {sel} 상세</h2>", unsafe_allow_html=True)
 
     left, right = st.columns(2)
 
     # ── 작업 일정 ──
     with left:
-        st.markdown("### 📋 작업 일정")
+        st.markdown("<h3 style='color:#e6e6e6;'>📋 작업 일정</h3>", unsafe_allow_html=True)
         existing = get_tasks_by_date(sel)
         if existing:
             for tid, leader, task, num, workers in existing:
@@ -293,10 +321,10 @@ if st.session_state.selected_date:
                 w_txt = f"({workers})" if workers else ""
                 box, btn = st.columns([5, 1])
                 box.markdown(
-                    f"<div style='background:#fff;border-left:5px solid {c};"
-                    f"border-radius:6px;padding:10px 12px;margin:4px 0;'>"
-                    f"<div style='font-size:16px;font-weight:700;color:#111;'>{leader}</div>"
-                    f"<div style='font-size:15px;margin:2px 0;color:#222;'>{task}</div>"
+                    f"<div style='background:#1a1f2b;border-left:5px solid {c};"
+                    f"border-radius:8px;padding:10px 14px;margin:4px 0;'>"
+                    f"<div style='font-size:16px;font-weight:700;color:#ffffff;'>{leader}</div>"
+                    f"<div style='font-size:15px;margin:2px 0;color:#d6d6d6;'>{task}</div>"
                     f"<div style='font-size:15px;color:{c};font-weight:700;'>{num}명{w_txt}</div>"
                     f"</div>",
                     unsafe_allow_html=True)
@@ -306,8 +334,15 @@ if st.session_state.selected_date:
         else:
             st.info("등록된 작업이 없습니다.")
 
-        st.markdown("#### ➕ 작업 추가")
-        leader_sel = st.selectbox("팀장 선택", TEAM_LEADERS, key="leader_sel")
+        st.markdown("<h4 style='color:#e6e6e6;'>➕ 작업 추가</h4>", unsafe_allow_html=True)
+
+        # 팀장이면 이름 고정, 인력이면 선택
+        if st.session_state.user in TEAM_LEADERS:
+            leader_sel = st.session_state.user
+            st.text_input("팀장", value=leader_sel, disabled=True, key="leader_fixed")
+        else:
+            leader_sel = st.selectbox("팀장 선택", TEAM_LEADERS, key="leader_sel")
+
         task_input = st.text_input("작업 내용", placeholder="예) 국민연금 추가작업", key="task_input")
         num_sel = st.number_input("필요 인력 수", min_value=1, max_value=4, value=1, step=1, key="num_sel")
         worker_sel = st.multiselect("투입 인력 (선택)", WORKERS, key="worker_sel")
@@ -322,17 +357,17 @@ if st.session_state.selected_date:
 
     # ── 메모 (팀간 소통) ──
     with right:
-        st.markdown("### 💬 메모 (팀간 소통)")
+        st.markdown("<h3 style='color:#e6e6e6;'>💬 메모 (팀간 소통)</h3>", unsafe_allow_html=True)
         memos = get_memos_by_date(sel)
         if memos:
             for mid, author, content, created in memos:
                 box, btn = st.columns([6, 1])
                 box.markdown(
-                    f"<div style='background:#fff8e1;border-radius:6px;"
-                    f"padding:8px 12px;margin:4px 0;color:#222;'>"
-                    f"<b style='color:#111;'>{author}</b> "
-                    f"<span style='color:#999;font-size:11px;'>{created}</span><br>"
-                    f"<span style='color:#222;'>{content}</span></div>",
+                    f"<div style='background:#2a2410;border-radius:8px;"
+                    f"padding:8px 14px;margin:4px 0;'>"
+                    f"<b style='color:#ffd54f;'>{author}</b> "
+                    f"<span style='color:#9a9a9a;font-size:11px;'>{created}</span><br>"
+                    f"<span style='color:#e6e6e6;'>{content}</span></div>",
                     unsafe_allow_html=True)
                 if btn.button("🗑", key=f"delmemo_{mid}"):
                     delete_memo(mid)
@@ -340,7 +375,7 @@ if st.session_state.selected_date:
         else:
             st.info("메모가 없습니다.")
 
-        st.markdown("#### ✏️ 메모 작성")
+        st.markdown("<h4 style='color:#e6e6e6;'>✏️ 메모 작성</h4>", unsafe_allow_html=True)
         memo_input = st.text_area("내용", placeholder="다른 팀에게 남길 말을 적으세요.", key="memo_input")
         if st.button("메모 남기기", use_container_width=True):
             if memo_input.strip():
@@ -354,4 +389,4 @@ if st.session_state.selected_date:
         st.session_state.selected_date = None
         st.rerun()
 else:
-    st.info("달력에서 날짜의 **열기** 버튼을 누르면 작업 입력과 메모를 작성할 수 있습니다.")
+    st.info("달력에서 날짜 칸을 클릭하면 작업 입력과 메모를 작성할 수 있습니다.")

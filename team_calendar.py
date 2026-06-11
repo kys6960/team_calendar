@@ -218,11 +218,19 @@ if "view_month" not in st.session_state:
 if "selected_date" not in st.session_state:
     st.session_state.selected_date = None
 
-# URL 쿼리 파라미터(?d=YYYY-MM-DD)로 클릭된 날짜 처리
 _qp = st.query_params
-if "d" in _qp and _qp["d"]:
-    st.session_state.selected_date = _qp["d"]
-    st.query_params.clear()
+
+# 로그인 상태를 URL(?u=이름)에서 복원 — URL이 바뀌어도 로그인 유지
+ALL_NAMES = TEAM_LEADERS + WORKERS
+if st.session_state.user is None and _qp.get("u") in ALL_NAMES:
+    st.session_state.user = _qp.get("u")
+
+# 클릭된 날짜(?d=YYYY-MM-DD) 처리
+if _qp.get("d"):
+    st.session_state.selected_date = _qp.get("d")
+    # 날짜 파라미터만 제거하고 로그인(u)은 유지
+    if "d" in _qp:
+        del _qp["d"]
 
 
 # ──────────────────────────────────────────────
@@ -237,6 +245,7 @@ def login_screen():
         role = "팀장" if name in TEAM_LEADERS else "인력"
         if cols[i].button(f"{name}\n({role})", use_container_width=True, key=f"login_{name}"):
             st.session_state.user = name
+            st.query_params["u"] = name   # URL에 로그인 정보 유지
             st.rerun()
 
 
@@ -256,6 +265,7 @@ with top_r:
     if st.button("로그아웃", use_container_width=True):
         st.session_state.user = None
         st.session_state.selected_date = None
+        st.query_params.clear()
         st.rerun()
 
 st.divider()
@@ -340,8 +350,11 @@ for week in weeks:
                 f"</div>"
             )
 
-        # 칸 전체를 링크로 → 클릭 시 ?d=날짜 로 이동
-        body_html += f"<a class='{cell_cls}' href='?d={wd_str}' target='_self'>{inner}</a>"
+        # 칸 전체를 링크로 → 클릭 시 ?u=이름&d=날짜 로 이동 (로그인 유지)
+        body_html += (
+            f"<a class='{cell_cls}' "
+            f"href='?u={st.session_state.user}&d={wd_str}' target='_self'>{inner}</a>"
+        )
 body_html += "</div>"
 
 st.markdown(head_html, unsafe_allow_html=True)

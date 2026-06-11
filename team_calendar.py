@@ -252,11 +252,12 @@ for week in weeks:
                 c = count_color(num)
                 w_txt = workers if workers else ""
                 inner += (
-                    f"<div style='background:#fff;border-left:4px solid {c};"
+                    f"<div style='background:#fff;color:#222;border-left:4px solid {c};"
                     f"border-radius:4px;padding:4px 6px;margin:3px 0;font-size:11px;line-height:1.35;'>"
-                    f"<b>{leader}</b><br>{task}<br>"
+                    f"<b style='color:#111;'>{leader}</b><br>"
+                    f"<span style='color:#222;'>{task}</span><br>"
                     f"<span style='color:{c};font-weight:700;'>{num}명</span>"
-                    f"{('('+w_txt+')') if w_txt else ''}"
+                    f"<span style='color:{c};font-weight:700;'>{('('+w_txt+')') if w_txt else ''}</span>"
                     f"</div>"
                 )
 
@@ -294,8 +295,8 @@ if st.session_state.selected_date:
                 box.markdown(
                     f"<div style='background:#fff;border-left:5px solid {c};"
                     f"border-radius:6px;padding:10px 12px;margin:4px 0;'>"
-                    f"<div style='font-size:16px;font-weight:700;'>{leader}</div>"
-                    f"<div style='font-size:15px;margin:2px 0;'>{task}</div>"
+                    f"<div style='font-size:16px;font-weight:700;color:#111;'>{leader}</div>"
+                    f"<div style='font-size:15px;margin:2px 0;color:#222;'>{task}</div>"
                     f"<div style='font-size:15px;color:{c};font-weight:700;'>{num}명{w_txt}</div>"
                     f"</div>",
                     unsafe_allow_html=True)
@@ -328,10 +329,10 @@ if st.session_state.selected_date:
                 box, btn = st.columns([6, 1])
                 box.markdown(
                     f"<div style='background:#fff8e1;border-radius:6px;"
-                    f"padding:8px 12px;margin:4px 0;'>"
-                    f"<b>{author}</b> "
+                    f"padding:8px 12px;margin:4px 0;color:#222;'>"
+                    f"<b style='color:#111;'>{author}</b> "
                     f"<span style='color:#999;font-size:11px;'>{created}</span><br>"
-                    f"{content}</div>",
+                    f"<span style='color:#222;'>{content}</span></div>",
                     unsafe_allow_html=True)
                 if btn.button("🗑", key=f"delmemo_{mid}"):
                     delete_memo(mid)

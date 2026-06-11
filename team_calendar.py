@@ -237,7 +237,11 @@ if _qp.get("d"):
 # 간단 로그인 (이름 선택)
 # ──────────────────────────────────────────────
 def login_screen():
-    st.title("📅 팀 공유 일정 달력")
+    st.markdown(
+        "<div style='white-space:nowrap;font-weight:800;color:#e6e6e6;"
+        "font-size:clamp(20px,6vw,40px);margin:8px 0 4px 0;'>"
+        "📅 팀 공유 일정 달력</div>",
+        unsafe_allow_html=True)
     st.markdown("#### 로그인 — 본인 이름을 선택하세요")
     all_names = TEAM_LEADERS + WORKERS
     cols = st.columns(len(all_names))
@@ -260,7 +264,12 @@ if st.session_state.user is None:
 top_l, top_r = st.columns([4, 1])
 with top_l:
     role = "팀장" if st.session_state.user in TEAM_LEADERS else "팀원"
-    st.markdown(f"### 📅 팀 공유 일정 달력  ·  **{st.session_state.user}** ({role}) 님")
+    st.markdown(
+        f"<div style='font-weight:800;color:#e6e6e6;font-size:clamp(15px,4.2vw,24px);'>"
+        f"<span style='white-space:nowrap;'>📅 팀 공유 일정 달력</span><br>"
+        f"<span style='font-size:0.7em;color:#b8c0d0;'>{st.session_state.user} ({role}) 님</span>"
+        f"</div>",
+        unsafe_allow_html=True)
 with top_r:
     if st.button("로그아웃", use_container_width=True):
         st.session_state.user = None

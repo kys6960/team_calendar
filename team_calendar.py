@@ -34,34 +34,64 @@ st.markdown("""
 /* 전체 배경 다크 */
 .stApp { background-color: #0e1117; }
 
-/* 날짜 칸 버튼을 달력 셀처럼 보이게 */
-div[data-testid="column"] .stButton > button {
+/* ── 달력 그리드 (모바일에서도 7칸 고정) ── */
+.cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
     width: 100%;
-    min-height: 116px;
+}
+.cal-head {
+    text-align: center;
+    font-weight: 700;
+    padding: 6px 0;
+    font-size: 13px;
+}
+.cal-cell {
+    display: block;
+    min-height: 110px;
     background-color: #1a1f2b;
     border: 1px solid #2a3142;
     border-radius: 10px;
-    padding: 8px 8px;
-    text-align: left;
-    white-space: pre-line;       /* 줄바꿈 \n 적용 */
-    line-height: 1.45;
-    font-size: 12px;
+    padding: 6px 6px;
+    text-decoration: none;
     color: #e6e6e6;
+    overflow: hidden;
     transition: all 0.12s ease-in-out;
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
 }
-div[data-testid="column"] .stButton > button:hover {
+.cal-cell:hover {
     background-color: #232a3a;
     border-color: #4a90e2;
-    transform: translateY(-1px);
 }
-/* 버튼 내부 텍스트 좌측 정렬 */
-div[data-testid="column"] .stButton > button p {
-    text-align: left;
-    width: 100%;
-    margin: 0;
+.cal-cell.empty {
+    background: transparent;
+    border: none;
+    pointer-events: none;
+}
+.cal-cell.today {
+    border: 2px solid #4a90e2;
+    background-color: #18223a;
+}
+.cal-daynum {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+.cal-task {
+    border-top: 1px solid #2a3142;
+    margin-top: 4px;
+    padding-top: 3px;
+    font-size: 11px;
+    line-height: 1.35;
+    word-break: break-all;
+}
+.cal-task .lead { font-weight: 700; color: #ffffff; }
+.cal-task .desc { color: #d0d0d0; }
+@media (max-width: 640px) {
+    .cal-cell { min-height: 80px; padding: 4px; }
+    .cal-daynum { font-size: 12px; }
+    .cal-task { font-size: 9px; }
+    .cal-head { font-size: 11px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -188,6 +218,12 @@ if "view_month" not in st.session_state:
 if "selected_date" not in st.session_state:
     st.session_state.selected_date = None
 
+# URL 쿼리 파라미터(?d=YYYY-MM-DD)로 클릭된 날짜 처리
+_qp = st.query_params
+if "d" in _qp and _qp["d"]:
+    st.session_state.selected_date = _qp["d"]
+    st.query_params.clear()
+
 
 # ──────────────────────────────────────────────
 # 간단 로그인 (이름 선택)
@@ -260,45 +296,56 @@ month = st.session_state.view_month
 month_tasks = get_tasks_for_month(year, month)
 
 weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
-header_cols = st.columns(7, gap="small")
-for i, wn in enumerate(weekday_names):
-    color = "#ef5350" if i == 6 else ("#42a5f5" if i == 5 else "#cfcfcf")
-    header_cols[i].markdown(
-        f"<div style='text-align:center;font-weight:700;color:{color};padding:4px 0;'>{wn}</div>",
-        unsafe_allow_html=True)
 
 cal = calendar.Calendar(firstweekday=0)  # 월요일 시작
 weeks = cal.monthdayscalendar(year, month)
 today = date.today()
 
+
+def esc(s):
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+# 요일 헤더
+head_html = "<div class='cal-grid'>"
+for i, wn in enumerate(weekday_names):
+    color = "#ef5350" if i == 6 else ("#42a5f5" if i == 5 else "#cfcfcf")
+    head_html += f"<div class='cal-head' style='color:{color};'>{wn}</div>"
+head_html += "</div>"
+
+# 날짜 본문
+body_html = "<div class='cal-grid'>"
 for week in weeks:
-    cols = st.columns(7, gap="small")
     for i, day in enumerate(week):
-        with cols[i]:
-            if day == 0:
-                st.markdown(
-                    "<div style='min-height:116px;'></div>",
-                    unsafe_allow_html=True)
-                continue
+        if day == 0:
+            body_html += "<div class='cal-cell empty'></div>"
+            continue
 
-            wd_str = f"{year:04d}-{month:02d}-{day:02d}"
-            tasks = month_tasks.get(wd_str, [])
-            is_today = (today.year == year and today.month == month and today.day == day)
+        wd_str = f"{year:04d}-{month:02d}-{day:02d}"
+        tasks = month_tasks.get(wd_str, [])
+        is_today = (today.year == year and today.month == month and today.day == day)
 
-            # 버튼 라벨 구성 (줄바꿈은 \n, CSS white-space:pre-line 으로 적용)
-            mark = "● " if is_today else ""
-            label_lines = [f"{mark}{day}"]
-            for leader, task, num, workers in tasks:
-                w_txt = f"({workers})" if workers else ""
-                label_lines.append(f"─────")
-                label_lines.append(f"{leader}")
-                label_lines.append(f"{task}")
-                label_lines.append(f"{num}명{w_txt}")
-            label = "\n".join(label_lines)
+        day_color = "#ef5350" if i == 6 else ("#42a5f5" if i == 5 else "#e6e6e6")
+        cell_cls = "cal-cell today" if is_today else "cal-cell"
 
-            if st.button(label, key=f"cell_{wd_str}", use_container_width=True):
-                st.session_state.selected_date = wd_str
-                st.rerun()
+        inner = f"<div class='cal-daynum' style='color:{day_color};'>{day}</div>"
+        for leader, task, num, workers in tasks:
+            c = count_color(num)
+            w_txt = f"({esc(workers)})" if workers else ""
+            inner += (
+                f"<div class='cal-task'>"
+                f"<span class='lead'>{esc(leader)}</span><br>"
+                f"<span class='desc'>{esc(task)}</span><br>"
+                f"<span style='color:{c};font-weight:700;'>{num}명{w_txt}</span>"
+                f"</div>"
+            )
+
+        # 칸 전체를 링크로 → 클릭 시 ?d=날짜 로 이동
+        body_html += f"<a class='{cell_cls}' href='?d={wd_str}' target='_self'>{inner}</a>"
+body_html += "</div>"
+
+st.markdown(head_html, unsafe_allow_html=True)
+st.markdown(body_html, unsafe_allow_html=True)
 
 st.divider()
 

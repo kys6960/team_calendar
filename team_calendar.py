@@ -11,12 +11,12 @@ st.set_page_config(page_title="팀 공유 일정 달력", page_icon="📅", layo
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "team_calendar.db")
 
-# 팀장 / 인력 정의
+# 팀장 / 팀원 정의
 TEAM_LEADERS = ["서유석", "홍영태", "김수용"]
 WORKERS = ["김만두", "박순일", "고한명", "서범석"]
 
 
-# 인원수 색상 (필요 인력이 많을수록 강조) - 다크 배경용 밝은 색
+# 인원수 색상 (필요 팀원이 많을수록 강조) - 다크 배경용 밝은 색
 def count_color(n):
     if n <= 1:
         return "#66bb6a"   # 밝은 초록
@@ -242,7 +242,7 @@ def login_screen():
     all_names = TEAM_LEADERS + WORKERS
     cols = st.columns(len(all_names))
     for i, name in enumerate(all_names):
-        role = "팀장" if name in TEAM_LEADERS else "인력"
+        role = "팀장" if name in TEAM_LEADERS else "팀원"
         if cols[i].button(f"{name}\n({role})", use_container_width=True, key=f"login_{name}"):
             st.session_state.user = name
             st.query_params["u"] = name   # URL에 로그인 정보 유지
@@ -259,7 +259,7 @@ if st.session_state.user is None:
 # ──────────────────────────────────────────────
 top_l, top_r = st.columns([4, 1])
 with top_l:
-    role = "팀장" if st.session_state.user in TEAM_LEADERS else "인력"
+    role = "팀장" if st.session_state.user in TEAM_LEADERS else "팀원"
     st.markdown(f"### 📅 팀 공유 일정 달력  ·  **{st.session_state.user}** ({role}) 님")
 with top_r:
     if st.button("로그아웃", use_container_width=True):
@@ -396,7 +396,7 @@ if st.session_state.selected_date:
 
         st.markdown("<h4 style='color:#e6e6e6;'>➕ 작업 추가</h4>", unsafe_allow_html=True)
 
-        # 팀장이면 이름 고정, 인력이면 선택
+        # 팀장이면 이름 고정, 팀원이면 선택
         if st.session_state.user in TEAM_LEADERS:
             leader_sel = st.session_state.user
             st.text_input("팀장", value=leader_sel, disabled=True, key="leader_fixed")
@@ -404,8 +404,8 @@ if st.session_state.selected_date:
             leader_sel = st.selectbox("팀장 선택", TEAM_LEADERS, key="leader_sel")
 
         task_input = st.text_input("작업 내용", placeholder="예) 국민연금 추가작업", key="task_input")
-        num_sel = st.number_input("필요 인력 수", min_value=1, max_value=4, value=1, step=1, key="num_sel")
-        worker_sel = st.multiselect("투입 인력 (선택)", WORKERS, key="worker_sel")
+        num_sel = st.number_input("필요 팀원 수", min_value=1, max_value=4, value=1, step=1, key="num_sel")
+        worker_sel = st.multiselect("투입 팀원 (선택)", WORKERS, key="worker_sel")
 
         if st.button("작업 등록", type="primary", use_container_width=True):
             if task_input.strip():

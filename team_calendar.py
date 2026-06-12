@@ -314,9 +314,9 @@ year = st.session_state.view_year
 month = st.session_state.view_month
 month_tasks = get_tasks_for_month(year, month)
 
-weekday_names = ["월", "화", "수", "목", "금", "토", "일"]
+weekday_names = ["일", "월", "화", "수", "목", "금", "토"]
 
-cal = calendar.Calendar(firstweekday=0)  # 월요일 시작
+cal = calendar.Calendar(firstweekday=6)  # 일요일 시작
 weeks = cal.monthdayscalendar(year, month)
 today = date.today()
 
@@ -328,7 +328,7 @@ def esc(s):
 # 요일 헤더
 head_html = "<div class='cal-grid'>"
 for i, wn in enumerate(weekday_names):
-    color = "#ef5350" if i == 6 else ("#42a5f5" if i == 5 else "#cfcfcf")
+    color = "#ef5350" if i == 0 else ("#42a5f5" if i == 6 else "#cfcfcf")
     head_html += f"<div class='cal-head' style='color:{color};'>{wn}</div>"
 head_html += "</div>"
 
@@ -344,7 +344,7 @@ for week in weeks:
         tasks = month_tasks.get(wd_str, [])
         is_today = (today.year == year and today.month == month and today.day == day)
 
-        day_color = "#ef5350" if i == 6 else ("#42a5f5" if i == 5 else "#e6e6e6")
+        day_color = "#ef5350" if i == 0 else ("#42a5f5" if i == 6 else "#e6e6e6")
         cell_cls = "cal-cell today" if is_today else "cal-cell"
 
         inner = f"<div class='cal-daynum' style='color:{day_color};'>{day}</div>"

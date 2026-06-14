@@ -1,15 +1,12 @@
 import streamlit as st
-import sqlite3
+from supabase import create_client
 import calendar
 from datetime import date, datetime
-import os
 
 # ──────────────────────────────────────────────
 # 기본 설정
 # ──────────────────────────────────────────────
 st.set_page_config(page_title="팀 공유 일정 달력", page_icon="📅", layout="wide")
-
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "team_calendar.db")
 
 # 팀장 / 팀원 정의
 TEAM_LEADERS = ["서유석", "홍영태", "김수용"]
@@ -98,113 +95,81 @@ st.markdown("""
 
 
 # ──────────────────────────────────────────────
-# DB 초기화 / 함수
+# Supabase 연결 / 함수
+#   - 데이터는 Supabase(PostgreSQL)에 영구 저장됩니다.
+#   - 앱이 재시작돼도 데이터가 사라지지 않습니다.
 # ──────────────────────────────────────────────
-def get_conn():
-    return sqlite3.connect(DB_PATH, check_same_thread=False)
+@st.cache_resource
+def get_supabase():
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
 
 
-def init_db():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            work_date TEXT NOT NULL,
-            leader TEXT NOT NULL,
-            task TEXT NOT NULL,
-            num_people INTEGER NOT NULL,
-            workers TEXT,
-            created_at TEXT
-        )
-    """)
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS memos (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            work_date TEXT NOT NULL,
-            author TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TEXT
-        )
-    """)
-    conn.commit()
-    conn.close()
+sb = get_supabase()
 
 
 def add_task(work_date, leader, task, num_people, workers):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO tasks (work_date, leader, task, num_people, workers, created_at) VALUES (?,?,?,?,?,?)",
-        (work_date, leader, task, num_people, ",".join(workers),
-         datetime.now().strftime("%Y-%m-%d %H:%M")),
-    )
-    conn.commit()
-    conn.close()
+    sb.table("tasks").insert({
+        "work_date": work_date,
+        "leader": leader,
+        "task": task,
+        "num_people": int(num_people),
+        "workers": ",".join(workers),
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }).execute()
 
 
 def get_tasks_by_date(work_date):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, leader, task, num_people, workers FROM tasks WHERE work_date=? ORDER BY id",
-              (work_date,))
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    res = (sb.table("tasks")
+           .select("id, leader, task, num_people, workers")
+           .eq("work_date", work_date)
+           .order("id")
+           .execute())
+    return [(r["id"], r["leader"], r["task"], r["num_people"], r["workers"] or "")
+            for r in res.data]
 
 
 def get_tasks_for_month(year, month):
-    conn = get_conn()
-    c = conn.cursor()
     prefix = f"{year:04d}-{month:02d}-"
-    c.execute("SELECT work_date, leader, task, num_people, workers FROM tasks WHERE work_date LIKE ? ORDER BY id",
-              (prefix + "%",))
-    rows = c.fetchall()
-    conn.close()
+    res = (sb.table("tasks")
+           .select("work_date, leader, task, num_people, workers")
+           .like("work_date", prefix + "%")
+           .order("id")
+           .execute())
     result = {}
-    for wd, leader, task, num, workers in rows:
-        result.setdefault(wd, []).append((leader, task, num, workers))
+    for r in res.data:
+        result.setdefault(r["work_date"], []).append(
+            (r["leader"], r["task"], r["num_people"], r["workers"] or "")
+        )
     return result
 
 
 def delete_task(task_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("DELETE FROM tasks WHERE id=?", (task_id,))
-    conn.commit()
-    conn.close()
+    sb.table("tasks").delete().eq("id", task_id).execute()
 
 
 def add_memo(work_date, author, content):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute(
-        "INSERT INTO memos (work_date, author, content, created_at) VALUES (?,?,?,?)",
-        (work_date, author, content, datetime.now().strftime("%Y-%m-%d %H:%M")),
-    )
-    conn.commit()
-    conn.close()
+    sb.table("memos").insert({
+        "work_date": work_date,
+        "author": author,
+        "content": content,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }).execute()
 
 
 def get_memos_by_date(work_date):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT id, author, content, created_at FROM memos WHERE work_date=? ORDER BY id",
-              (work_date,))
-    rows = c.fetchall()
-    conn.close()
-    return rows
+    res = (sb.table("memos")
+           .select("id, author, content, created_at")
+           .eq("work_date", work_date)
+           .order("id")
+           .execute())
+    return [(r["id"], r["author"], r["content"], r["created_at"]) for r in res.data]
 
 
 def delete_memo(memo_id):
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("DELETE FROM memos WHERE id=?", (memo_id,))
-    conn.commit()
-    conn.close()
+    sb.table("memos").delete().eq("id", memo_id).execute()
 
-
-init_db()
 
 # ──────────────────────────────────────────────
 # 세션 상태

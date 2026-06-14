@@ -1,7 +1,18 @@
 import streamlit as st
 from supabase import create_client
 import calendar
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
+
+# 한국 표준시(KST, UTC+9). 서버가 해외에 있어도 항상 한국 날짜/시간을 사용.
+KST = timezone(timedelta(hours=9))
+
+
+def now_kst():
+    return datetime.now(KST)
+
+
+def today_kst():
+    return now_kst().date()
 
 # ──────────────────────────────────────────────
 # 기본 설정
@@ -116,7 +127,7 @@ def add_task(work_date, leader, task, num_people, workers):
         "task": task,
         "num_people": int(num_people),
         "workers": ",".join(workers),
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "created_at": now_kst().strftime("%Y-%m-%d %H:%M"),
     }).execute()
 
 
@@ -154,7 +165,7 @@ def add_memo(work_date, author, content):
         "work_date": work_date,
         "author": author,
         "content": content,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "created_at": now_kst().strftime("%Y-%m-%d %H:%M"),
     }).execute()
 
 
@@ -177,9 +188,9 @@ def delete_memo(memo_id):
 if "user" not in st.session_state:
     st.session_state.user = None
 if "view_year" not in st.session_state:
-    st.session_state.view_year = date.today().year
+    st.session_state.view_year = today_kst().year
 if "view_month" not in st.session_state:
-    st.session_state.view_month = date.today().month
+    st.session_state.view_month = today_kst().month
 if "selected_date" not in st.session_state:
     st.session_state.selected_date = None
 
@@ -283,7 +294,7 @@ weekday_names = ["일", "월", "화", "수", "목", "금", "토"]
 
 cal = calendar.Calendar(firstweekday=6)  # 일요일 시작
 weeks = cal.monthdayscalendar(year, month)
-today = date.today()
+today = today_kst()
 
 
 def esc(s):
